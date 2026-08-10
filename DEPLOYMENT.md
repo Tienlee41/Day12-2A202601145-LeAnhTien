@@ -12,55 +12,37 @@
 
 | Mục | Nội dung |
 |-----|----------|
-| Base URL kiểm tra | http://localhost:8000 |
-| Platform | Docker Compose local fallback; chưa có phiên đăng nhập Railway/Render |
+| Public URL | https://day12-agent-l002.onrender.com |
+| Platform | Render Blueprint, Docker Web Service và Render Key Value |
+| Branch | `main` |
+| Commit đã deploy | `6cf23d1` (`cp5`) |
 | Ngày kiểm tra | 2026-08-10 |
-| Chế độ | `LOCAL_FALLBACK=true` |
 
-Không có Railway/Render CLI, token hoặc phiên đăng nhập cloud trên máy thực
-hiện bài, nên checkpoint sử dụng phương án local fallback chính thức. Stack
-vẫn chạy từ production Dockerfile và kết nối tới Redis service qua Docker
-Compose; không khai báo một URL cloud giả.
+Render build production `Dockerfile`, cấp HTTPS cho web service và kết nối
+service với `day12-redis` qua mạng nội bộ. Endpoint gốc `/` không được khai báo;
+các endpoint vận hành chính thức là `/health`, `/ready`, `/ask` và `/docs`.
 
-## Biến Môi Trường
+## Biến Môi Trường Trên Render
 
 Chỉ tên và nguồn của biến được ghi lại; giá trị khóa bí mật không nằm trong
 tài liệu hoặc repository.
 
 | Biến | Trạng thái | Nguồn |
 |------|------------|-------|
-| `PORT` | Đã set | Docker Compose, cổng 8000 |
-| `AGENT_API_KEY` | Đã set | File `.env` không được commit |
-| `REDIS_URL` | Đã set | `redis://redis:6379/0` trong mạng Compose |
-| `RATE_LIMIT_PER_MINUTE` | Đã set | Cấu hình local |
-| `MONTHLY_BUDGET_USD` | Đã set | Cấu hình local |
-| `LOG_LEVEL` | Đã set | Cấu hình local |
+| `PORT` | Đã set | Render tự cấp; ứng dụng đọc biến lúc khởi động |
+| `AGENT_API_KEY` | Đã set | Render Environment, giá trị được ẩn |
+| `REDIS_URL` | Đã set | Internal Key Value URL của `day12-redis` |
+| `RATE_LIMIT_PER_MINUTE` | Đã set | Render Blueprint, giá trị 10 |
+| `MONTHLY_BUDGET_USD` | Đã set | Render Blueprint, giá trị 10.0 |
+| `LOG_LEVEL` | Đã set | Render Blueprint, giá trị INFO |
 
-## Kết Quả Chạy Thật
-
-Khởi động stack:
-
-```text
-docker compose up -d --build
-Image day12-2a202601145-leanhtien-agent Built
-Container day12-2a202601145-leanhtien-redis-1 Healthy
-Container day12-2a202601145-leanhtien-agent-1 Started
-```
-
-Trạng thái container:
-
-```text
-agent  Up (healthy)  0.0.0.0:8000->8000/tcp
-redis  Up (healthy)  0.0.0.0:6379->6379/tcp
-```
-
-Kiểm tra endpoint:
+## Kết Quả Kiểm Tra Cloud
 
 ```text
 GET  /health:          HTTP 200 {"status":"ok","service":"day12-agent","version":"1.0.0"}
 GET  /ready:           HTTP 200 {"status":"ready","redis":true}
 POST /ask without key: HTTP 401 {"detail":"invalid or missing API key"}
-POST /ask with key:    HTTP 200 answer_present=True user_id=cp5-auth-verification
+POST /ask with key:    HTTP 200 answer_present=True user_id=cp5-final-auth
 ```
 
 Kiểm tra rate limit bằng một user riêng:
@@ -69,6 +51,10 @@ Kiểm tra rate limit bằng một user riêng:
 200 200 200 200 200 200 200 200 200 200 429
 ```
 
-## Ảnh Chụp
+Các kết quả trên chứng minh web process hoạt động, Redis nội bộ sẵn sàng,
+endpoint có xác thực chặn request không key, request hợp lệ nhận được câu trả
+lời và hạn mức 10 request/phút được thực thi.
 
-- `screenshots/local-fallback.png` — trạng thái stack và kết quả endpoint.
+## Ảnh Kiểm Tra
+
+- `screenshots/render-verification.png` — kết quả gọi service Render công khai.
